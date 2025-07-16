@@ -5,10 +5,18 @@ from PyPDF2 import PdfReader
 from rag import get_answer_with_rag, build_faiss_index
 from utils import extract_text_from_pdf
 from embedding import get_embeddings
+from fastapi.templating import Jinja2Templates
+import os
 
 import tempfile
 
 app = FastAPI()
+
+templates = Jinja2Templates(directory="templates")
+
+@app.get("/", response_class=HTMLResponse)
+def serve_ui(request: Request):
+    return templates.TemplateResponse("legal_pt3.html", {"request": request})
 
 app.add_middleware(
     CORSMiddleware,
