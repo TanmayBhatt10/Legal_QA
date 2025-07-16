@@ -1,6 +1,6 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from PyPDF2 import PdfReader
 from rag import get_answer_with_rag, build_faiss_index
 from utils import extract_text_from_pdf
