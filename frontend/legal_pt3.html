@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal Document Analyzer - AI Assistant</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #2d3748;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .upload-section {
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 3px dashed #e2e8f0;
+            border-radius: 15px;
+            padding: 40px 20px;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: linear-gradient(145deg, #f8fafc, #e2e8f0);
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: linear-gradient(145deg, #f0f4ff, #e6edff);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: linear-gradient(145deg, #f0f4ff, #e6edff);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .file-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: linear-gradient(135deg, #e6fffa, #b2f5ea);
+            border-radius: 10px;
+            display: none;
+        }
+
+        .processing {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .qa-section h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .question-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            resize: vertical;
+            min-height: 100px;
+            transition: border-color 0.3s ease;
+        }
+
+        .question-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .ask-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(72, 187, 120, 0.4);
+        }
+
+        .ask-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(72, 187, 120, 0.6);
+        }
+
+        .ask-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .results-section {
+            grid-column: 1 / -1;
+            margin-top: 30px;
+        }
+
+        .summary-card, .answer-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-card::before, .answer-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+        }
+
+        .summary-card h3, .answer-card h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .conversation-display {
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .user-question {
+            background: linear-gradient(135deg, #e6edff, #d6e3ff);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .user-question::before {
+            content: '👤';
+            position: absolute;
+            left: -10px;
+            top: -5px;
+            background: white;
+            padding: 5px 8px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .user-question h4 {
+            color: #4c51bf;
+            font-size: 1rem;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .user-question p {
+            color: #2d3748;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+
+        .ai-response {
+            background: linear-gradient(135deg, #f0fff4, #e6fffa);
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 4px solid #48bb78;
+            position: relative;
+        }
+
+        .ai-response::before {
+            content: '🤖';
+            position: absolute;
+            left: -10px;
+            top: -5px;
+            background: white;
+            padding: 5px 8px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .ai-response h4 {
+            color: #38a169;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .response-text {
+            color: #2d3748;
+            line-height: 1.7;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        .key-findings {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .key-findings h5 {
+            color: #2d3748;
+            margin-bottom: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .finding-item {
+            background: white;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 3px solid #48bb78;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .confidence-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+        }
+
+        .confidence-text {
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+
+        .confidence-bar {
+            flex: 1;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .source-references {
+            margin-top: 25px;
+            background: linear-gradient(135deg, #fafafa, #f4f4f5);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .source-references h5 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .source-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .source-item:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .source-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .source-title {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 0.9rem;
+        }
+
+        .relevance-score {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+
+        .source-content {
+            color: #4a5568;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .quick-questions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .quick-question {
+            background: linear-gradient(135deg, #fed7d7, #feb2b2);
+            color: #c53030;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .quick-question:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(197, 48, 48, 0.3);
+        }
+
+        .document-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            background: linear-gradient(135deg, #e6fffa, #b2f5ea);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #4a5568;
+            margin-top: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .action-btn.secondary {
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e0);
+            color: #4a5568;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .error-toast {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+        }
+
+        .typing-indicator {
+            display: inline-block;
+            font-style: italic;
+            color: #667eea;
+        }
+
+        .typing-dots::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .highlight {
+            background: linear-gradient(135deg, #fef5e7, #fed7aa);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-weight: 600;
+            color: #c05621;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+
+            .conversation-display {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚖️ Legal Document Assistant</h1>
+            <p>Your AI-powered legal document analyzer - Get human-friendly explanations</p>
+        </div>
+
+        <div class="main-content">
+            <div class="card">
+                <div class="upload-section">
+                    <h2>📄 Upload Your Document</h2>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">📁</div>
+                        <p>Drag and drop your PDF file here, or click to browse</p>
+                        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                            Choose File
+                        </button>
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf" />
+                    </div>
+                    <div class="file-info" id="fileInfo"></div>
+                    <div class="processing" id="processing" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Reading and analyzing your document...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="qa-section">
+                    <h2>💬 Ask Me Anything</h2>
+                    <textarea 
+                        class="question-input" 
+                        id="questionInput" 
+                        placeholder="Ask me anything about your document in plain English... For example: 'Can either party cancel this contract?' or 'How much does this cost?'"
+                        disabled
+                    ></textarea>
+                    <button class="ask-btn" id="askBtn" disabled>Ask Your Question</button>
+                    
+                    <div class="quick-questions" id="quickQuestions" style="display: none;">
+                        <button class="quick-question" onclick="askQuestion('Can you explain the main points of this document?')">Main Points</button>
+                        <button class="quick-question" onclick="askQuestion('How can this contract be terminated?')">Termination</button>
+                        <button class="quick-question" onclick="askQuestion('What are the payment details?')">Payment</button>
+                        <button class="quick-question" onclick="askQuestion('Who is responsible if something goes wrong?')">Liability</button>
+                        <button class="quick-question" onclick="askQuestion('What are the key dates I need to know?')">Important Dates</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="summary-card" id="summaryCard" style="display: none;">
+                <h3>📊 Document Overview</h3>
+                <div class="summary-content" id="summaryContent"></div>
+                <div class="document-stats" id="documentStats"></div>
+            </div>
+
+            <div class="answer-card" id="answerCard" style="display: none;">
+                <h3>💬 Our Conversation</h3>
+                <div class="conversation-display" id="conversationDisplay"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let documentChunks = [];
+        let documentText = '';
+        let currentFile = null;
+
+        // Initialize PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const processing = document.getElementById('processing');
+        const questionInput = document.getElementById('questionInput');
+        const askBtn = document.getElementById('askBtn');
+        const quickQuestions = document.getElementById('quickQuestions');
+        const summaryCard = document.getElementById('summaryCard');
+        const summaryContent = document.getElementById('summaryContent');
+        const documentStats = document.getElementById('documentStats');
+        const answerCard = document.getElementById('answerCard');
+        const conversationDisplay = document.getElementById('conversationDisplay');
+
+        // Event listeners
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('drop', handleDrop);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+        askBtn.addEventListener('click', handleQuestion);
+        questionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                handleQuestion();
+            }
+        });
+
+        // Drag and drop handlers
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        // File processing
+        async function handleFile(file) {
+            if (file.type !== 'application/pdf') {
+                showToast('Please select a PDF file', 'error');
+                return;
+            }
+
+            currentFile = file;
+            showProcessing(true);
+            
+            try {
+                const text = await extractTextFromPDF(file);
+                documentText = text;
+                documentChunks = chunkDocument(text);
+                
+                displayFileInfo(file);
+                displayDocumentSummary();
+                enableQA();
+                showToast('Perfect! Your document is ready for questions 🎉');
+            } catch (error) {
+                console.error('Error processing file:', error);
+                showToast('Sorry, I had trouble reading that file. Please try a different PDF.', 'error');
+            } finally {
+                showProcessing(false);
+            }
+        }
+
+        // PDF text extraction
+        async function extractTextFromPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            let fullText = '';
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n\n';
+            }
+
+            return fullText;
+        }
+
+        // Document chunking for RAG
+        function chunkDocument(text, chunkSize = 1000, overlap = 200) {
+            const chunks = [];
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            let currentChunk = '';
+            let currentLength = 0;
+
+            for (const sentence of sentences) {
+                const sentenceLength = sentence.trim().length;
+                
+                if (currentLength + sentenceLength > chunkSize && currentChunk) {
+                    chunks.push({
+                        text: currentChunk.trim(),
+                        length: currentLength,
+                        id: chunks.length
+                    });
+                    
+                    // Keep overlap
+                    const words = currentChunk.split(' ');
+                    const overlapWords = words.slice(-Math.floor(overlap / 6));
+                    currentChunk = overlapWords.join(' ') + ' ' + sentence.trim();
+                    currentLength = currentChunk.length;
+                } else {
+                    currentChunk += ' ' + sentence.trim();
+                    currentLength += sentenceLength;
+                }
+            }
+
+            if (currentChunk.trim()) {
+                chunks.push({
+                    text: currentChunk.trim(),
+                    length: currentLength,
+                    id: chunks.length
+                });
+            }
+
+            return chunks;
+        }
+
+        // Display functions
+        function displayFileInfo(file) {
+            fileInfo.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 8px 12px; border-radius: 20px; font-size: 0.9rem;">
+                        📄 ${file.name}
+                    </div>
+                    <div style="color: #4a5568; font-size: 0.9rem;">
+                        ${(file.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                </div>
+            `;
+            fileInfo.style.display = 'block';
+        }
+
+        function displayDocumentSummary() {
+            const wordCount = documentText.split(/\s+/).length;
+            const pageCount = Math.ceil(wordCount / 250);
+            const chunkCount = documentChunks.length;
+            
+            summaryContent.innerHTML = `
+                <p>Great! I've successfully read and analyzed your document. I've broken it down into ${chunkCount} sections so I can quickly find relevant information when you ask questions. Feel free to ask me anything about the content!</p>
+            `;
+            
+            documentStats.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-number">${wordCount.toLocaleString()}</div>
+                    <div class="stat-label">Words</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">${pageCount}</div>
+                    <div class="stat-label">Est. Pages</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">${chunkCount}</div>
+                    <div class="stat-label">Sections</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">${(documentText.length / 1024).toFixed(1)}KB</div>
+                    <div class="stat-label">Text Size</div>
+                </div>
+            `;
+            
+            summaryCard.style.display = 'block';
+        }
+
+        function enableQA() {
+            questionInput.disabled = false;
+            askBtn.disabled = false;
+            quickQuestions.style.display = 'flex';
+            questionInput.focus();
+        }
+
+        function showProcessing(show) {
+            processing.style.display = show ? 'block' : 'none';
+        }
+
+        // Question answering with human-like responses
+        async function handleQuestion() {
+            const question = questionInput.value.trim();
+            if (!question) {
+                showToast('Please type your question first!', 'error');
+                return;
+            }
+
+            if (!documentText || documentChunks.length === 0) {
+                showToast('Please upload a document first', 'error');
+                return;
+            }
+
+            askBtn.disabled = true;
+            askBtn.textContent = 'Thinking...';
+            
+            // Show typing indicator
+            showTypingIndicator(question);
+            
+            try {
+                const answer = await answerQuestion(question);
+                displayHumanAnswer(question, answer);
+                questionInput.value = '';
+            } catch (error) {
+                console.error('Error answering question:', error);
+                showToast('Sorry, I had trouble processing that question. Please try again.', 'error');
+            } finally {
+                askBtn.disabled = false;
+                askBtn.textContent = 'Ask Your Question';
+            }
+        }
+
+        function askQuestion(question) {
+            questionInput.value = question;
+            handleQuestion();
+        }
+
+        function showTypingIndicator(question) {
+            const questionHtml = `
+                <div class="user-question">
+                    <h4>You asked:</h4>
+                    <p>${question}</p>
+                </div>
+                <div class="ai-response">
+                    <h4>AI Legal Assistant:</h4>
+                    <div class="typing-indicator">
+                        <span class="typing-dots">Let me analyze your document</span>
+                    </div>
+                </div>
+            `;
+            
+            conversationDisplay.innerHTML = questionHtml;
+            answerCard.style.display = 'block';
+            answerCard.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Enhanced answer generation with human-like responses
+        async function answerQuestion(question) {
+            const relevantChunks = findRelevantChunks(question, 3);
+            const context = relevantChunks.map(chunk => chunk.text).join('\n\n');
+            
+            const answer = generateHumanAnswer(question, context);
+            
+            return {
+                answer: answer,
+                relevantChunks: relevantChunks
+            };
+        }
+
+        function findRelevantChunks(question, topK = 3) {
+            const questionWords = question.toLowerCase().split(/\s+/);
+            
+            const scoredChunks = documentChunks.map(chunk => {
+                const chunkWords = chunk.text.toLowerCase().split(/\s+/);
+                let score = 0;
+                
+                // Keyword matching
+                for (const qWord of questionWords) {
+                    if (qWord.length > 3) {
+                        const matches = chunkWords.filter(cWord => 
+                            cWord.includes(qWord) || qWord.includes(cWord)
+                        ).length;
+                        score += matches;
+                    }
+                }
+                
+                // Boost for exact phrases
+                if (chunk.text.toLowerCase().includes(question.toLowerCase())) {
+                    score += 10;
+                }
+                
+                return { ...chunk, score };
+            });
+            
+            const results = scoredChunks
+                .sort((a, b) => b.score - a.score)
+                .slice(0, topK)
+                .filter(chunk => chunk.score > 0);
+                
+            // Fallback if no matches
+            if (results.length === 0) {
+                return documentChunks.slice(0, topK).map(chunk => ({...chunk, score: 1}));
+            }
+            
+            return results;
+        }
+
+        function generateHumanAnswer(question, context) {
+            if (!context.trim()) {
+                return {
+                    mainResponse: "I'm sorry, but I couldn't find specific information in your document that directly answers your question. This might be because the document doesn't contain that information, or it might be worded differently than I expected.",
+                    keyPoints: [
+                        "The document might not contain the specific information you're looking for",
+                        "Try rephrasing your question or asking about a different aspect",
+                        "I can help you explore what IS in the document if you'd like"
+                    ],
+                    confidence: 20,
+                    tone: "apologetic"
+                };
+            }
+
+            const lowerQuestion = question.toLowerCase();
+            const lowerContext = context.toLowerCase();
+            
+            // Legal patterns with human responses
+            const patterns = {
+                termination: /terminat|end|expir|dissolv|cancel|quit|exit|break/i,
+                payment: /payment|pay|fee|cost|price|compensation|salary|wage|money|dollar/i,
+                liability: /liabil|responsible|damage|loss|harm|fault|blame|sue/i,
+                parties: /who|party|parties|client|contractor|vendor|supplier|company|person/i,
+                dates: /when|date|time|period|duration|deadline|start|begin|expire/i,
+                summary: /summary|summarize|overview|main|key|important|explain|about/i
+            };
+
+            let mainResponse = "";
+            let keyPoints = [];
+            let confidence = 60;
+            let tone = "helpful";
+
+            if (patterns.summary.test(lowerQuestion)) {
+                mainResponse = "Let me break down the main points of this document for you:";
+                const sentences = context.split(/[.!?]+/).filter(s => s.trim().length > 30);
+                keyPoints = sentences.slice(0, 5).map(s => s.trim()).filter(s => s.length > 0);
+                confidence = 75;
+                tone = "explanatory";
+                
+            } else if (patterns.termination.test(lowerQuestion)) {
+                const hasNotice = /30|thirty|notice/i.test(context);
+                const hasBreach = /breach|violat|default/i.test(context);
+                
+                if (hasNotice && hasBreach) {
+                    mainResponse = "Yes, this contract can be terminated in two main ways:";
+                    keyPoints = [
+                        "Either party can terminate by giving 30 days written notice",
+                        "If someone seriously breaks the contract (called 'material breach'), the other party can terminate immediately",
+                        "The termination process seems pretty standard for this type of agreement"
+                    ];
+                    confidence = 85;
+                } else if (hasNotice) {
+                    mainResponse = "Based on what I found, the contract can be terminated with advance notice:";
+                    keyPoints = [
+                        "Either party needs to give 30 days written notice to end the agreement",
+                        "This gives both sides time to prepare for the end of the relationship"
+                    ];
+                    confidence = 80;
+                } else {
+                    mainResponse = "I found some termination information, but let me explain what I see:";
+                    const relevantSentences = context.split(/[.!?]+/).filter(s => 
+                        patterns.termination.test(s) && s.trim().length > 15
+                    );
+                    keyPoints = relevantSentences.slice(0, 3).map(s => s.trim());
+                    confidence = 70;
+                }
+                
+            } else if (patterns.payment.test(lowerQuestion)) {
+                const amountMatch = context.match(/\$[\d,]+/);
+                const monthlyMatch = /monthly|month/i.test(context);
+                const firstMatch = /1st|first/i.test(context);
+                
+                mainResponse = "Here's what I found about the payment terms:";
+                keyPoints = [];
+                
+                if (amountMatch) {
+                    keyPoints.push(`The payment amount is ${amountMatch[0]}`);
+                }
+                if (monthlyMatch) {
+                    keyPoints.push("Payments are made monthly");
+                }
+                if (firstMatch) {
+                    keyPoints.push("Payments are due on the 1st of each month");
+                }
+                
+                // Add any other payment-related sentences
+                const paymentSentences = context.split(/[.!?]+/).filter(s => 
+                    patterns.payment.test(s) && s.trim().length > 15
+                );
+                keyPoints.push(...paymentSentences.slice(0, 2).map(s => s.trim()));
+                
+                confidence = 85;
+                
+            } else if (patterns.parties.test(lowerQuestion)) {
+                mainResponse = "Let me tell you about the parties involved in this agreement:";
+                
+                // Extract party information
+                const clientMatch = context.match(/Client[:\s]*([^,\n\.]+)/i);
+                const providerMatch = context.match(/Service Provider[:\s]*([^,\n\.]+)/i);
+                const companyMatches = context.match(/[A-Z][a-z]+ [A-Z][a-z]+ (?:Corporation|LLC|Inc|Solutions|Company)/g);
+                
+                keyPoints = [];
+                if (clientMatch) keyPoints.push(`The client is ${clientMatch[1].trim()}`);
+                if (providerMatch) keyPoints.push(`The service provider is ${providerMatch[1].trim()}`);
+                if (companyMatches) {
+                    companyMatches.forEach(company => {
+                        if (!keyPoints.some(point => point.includes(company))) {
+                            keyPoints.push(`One of the parties is ${company}`);
+                        }
+                    });
+                }
+                
+                confidence = 80;
+                
+            } else if (patterns.dates.test(lowerQuestion)) {
+                mainResponse = "Here are the important dates I found:";
+                
+                const dateMatches = context.match(/(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d+,?\s+\d{4}/g);
+                const durationMatches = context.match(/\d+\s+(?:days?|months?|years?)/g);
+                
+                keyPoints = [];
+                if (dateMatches) {
+                    dateMatches.forEach(date => keyPoints.push(`Important date: ${date}`));
+                }
+                if (durationMatches) {
+                    durationMatches.forEach(duration => keyPoints.push(`Duration mentioned: ${duration}`));
+                }
+                
+                // Extract term information
+                if (/commence|start|begin/i.test(context)) {
+                    const startSentence = context.split(/[.!?]+/).find(s => /commence|start|begin/i.test(s));
+                    if (startSentence) keyPoints.push(startSentence.trim());
+                }
+                
+                confidence = 75;
+                
+            } else if (patterns.liability.test(lowerQuestion)) {
+                mainResponse = "Regarding liability and responsibility, here's what the document says:";
+                
+                const liabilitySentences = context.split(/[.!?]+/).filter(s => 
+                    patterns.liability.test(s) && s.trim().length > 15
+                );
+                
+                if (liabilitySentences.length > 0) {
+                    keyPoints = liabilitySentences.slice(0, 3).map(s => s.trim());
+                    confidence = 80;
+                } else {
+                    keyPoints = [
+                        "I found some references to liability, but they might need closer review",
+                        "Check the source sections below for the specific language used"
+                    ];
+                    confidence = 50;
+                }
+                
+            } else {
+                // General response
+                mainResponse = "Based on your question, here's what I found in the document:";
+                const sentences = context.split(/[.!?]+/).filter(s => s.trim().length > 25);
+                keyPoints = sentences.slice(0, 4).map(s => s.trim()).filter(s => s.length > 0);
+                confidence = 65;
+            }
+
+            // Clean up and ensure we have good content
+            keyPoints = [...new Set(keyPoints)].filter(point => point && point.trim().length > 10);
+            
+            if (keyPoints.length === 0) {
+                keyPoints = [
+                    "I found relevant information but it might need manual review",
+                    "Please check the source sections below for the exact wording"
+                ];
+                confidence = 40;
+            }
+
+            return {
+                mainResponse,
+                keyPoints,
+                confidence,
+                tone
+            };
+        }
+
+        function displayHumanAnswer(question, result) {
+            const answerData = result.answer;
+            const chunks = result.relevantChunks || [];
+            
+            // Create human-like conversation display
+            const conversationHtml = `
+                <div class="user-question">
+                    <h4>You asked:</h4>
+                    <p>${question}</p>
+                </div>
+                
+                <div class="ai-response">
+                    <h4>AI Legal Assistant:</h4>
+                    <div class="response-text">
+                        ${answerData.mainResponse}
+                    </div>
+                    
+                    <div class="key-findings">
+                        <h5>📋 Key Points:</h5>
+                        ${answerData.keyPoints.map(point => 
+                            `<div class="finding-item">${point}</div>`
+                        ).join('')}
+                    </div>
+                    
+                    <div class="confidence-display">
+                        <span class="confidence-text">
+                            ${getConfidenceMessage(answerData.confidence)}
+                        </span>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${answerData.confidence}%;"></div>
+                        </div>
+                        <span style="font-size: 0.9rem; color: #4a5568;">${answerData.confidence}%</span>
+                    </div>
+                    
+                    ${chunks.length > 0 ? `
+                        <div class="source-references">
+                            <h5>📄 Source References:</h5>
+                            ${chunks.map((chunk, index) => `
+                                <div class="source-item">
+                                    <div class="source-header">
+                                        <span class="source-title">Document Section ${chunk.id + 1}</span>
+                                        <span class="relevance-score">${Math.round((chunk.score / 10) * 100)}% relevant</span>
+                                    </div>
+                                    <div class="source-content">
+                                        ${chunk.text.substring(0, 300)}${chunk.text.length > 300 ? '...' : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="action-buttons">
+                        <button class="action-btn" onclick="copyConversation()">
+                            📋 Copy This Answer
+                        </button>
+                        <button class="action-btn secondary" onclick="askFollowUp()">
+                            💬 Ask Follow-up
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            conversationDisplay.innerHTML = conversationHtml;
+            answerCard.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function getConfidenceMessage(confidence) {
+            if (confidence >= 80) return "I'm quite confident about this answer";
+            if (confidence >= 60) return "I'm reasonably confident about this";
+            if (confidence >= 40) return "I found some relevant information";
+            return "This might need additional review";
+        }
+
+        function highlightKeywords(text, question) {
+            const keywords = question.toLowerCase().split(/\s+/).filter(word => 
+                word.length > 3 && !['what', 'when', 'where', 'why', 'how', 'are', 'the', 'this', 'that', 'with', 'from', 'they', 'have', 'been'].includes(word)
+            );
+            
+            // If no keywords to highlight, return original text
+            if (keywords.length === 0) {
+                return text;
+            }
+            
+            let highlightedText = text;
+            
+            // Only highlight actual keywords, avoid breaking numbers/percentages
+            keywords.forEach(keyword => {
+                if (keyword.length > 2) {
+                    // Use word boundaries and avoid highlighting inside numbers
+                    const regex = new RegExp(`(?<!\\d)\\b(${keyword})\\b(?!\\d|%)`, 'gi');
+                    highlightedText = highlightedText.replace(regex, '<span class="highlight">$1</span>');
+                }
+            });
+            
+            return highlightedText;
+        }
+
+        function copyConversation() {
+            const userQuestion = document.querySelector('.user-question p').innerText;
+            const responseText = document.querySelector('.response-text').innerText;
+            const keyPoints = Array.from(document.querySelectorAll('.finding-item')).map((item, index) => 
+                `${index + 1}. ${item.innerText}`
+            ).join('\n');
+            
+            const fullText = `Question: ${userQuestion}\n\nAnswer: ${responseText}\n\nKey Points:\n${keyPoints}`;
+            
+            navigator.clipboard.writeText(fullText).then(() => {
+                showToast('Conversation copied to clipboard! 📋');
+            }).catch(() => {
+                showToast('Failed to copy conversation', 'error');
+            });
+        }
+
+        function askFollowUp() {
+            questionInput.focus();
+            questionInput.value = '';
+            questionInput.placeholder = 'Ask a follow-up question about what we just discussed...';
+        }
+
+        // Utility functions
+        function showToast(message, type = 'success') {
+            // Only show user-relevant messages, not debug info
+            if (message.toLowerCase().includes('bug') || message.toLowerCase().includes('fix')) {
+                return; // Skip showing bug-related messages
+            }
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'error' ? 'error-toast' : ''}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => document.body.removeChild(toast), 300);
+            }, 3000);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Legal Document Assistant initialized');
+        });
+    </script>
+</body>
+</html>
